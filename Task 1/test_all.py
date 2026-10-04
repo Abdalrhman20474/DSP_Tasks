@@ -8,10 +8,11 @@ from file_io import read_signal
 from operations import add_signals, multiply_signal
 from plotting import plot_signal
 
-S = "samples/"
-s1 = read_signal(S + "Signal1.txt")
-s2 = read_signal(S + "Signal2.txt")
-s3 = read_signal(S + "signal3.txt")
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+S = os.path.join(SCRIPT_DIR, "input", "")
+s1 = read_signal(os.path.join(S, "Signal1.txt"))
+s2 = read_signal(os.path.join(S, "Signal2.txt"))
+s3 = read_signal(os.path.join(S, "signal3.txt"))
 
 
 def temp_file(text):

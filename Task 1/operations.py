@@ -22,3 +22,21 @@ def add_signals(signals: List[Signal]) -> Signal:
     return Signal(0, periodic, indices, amplitudes, name="sum")
 
 
+def multiply_signal(signal: Signal, constant: float) -> Signal:
+    """Multiply a signal by a constant scalar to amplify, attenuate, or invert."""
+    if not isinstance(constant, (int, float)):
+        raise ValueError("Constant must be a numeric value (int or float).")
+
+    indices = list(signal.indices)
+    amplitudes = [amp * constant for amp in signal.amplitudes]
+    return Signal(
+        signal_type=signal.signal_type,
+        is_periodic=signal.is_periodic,
+        indices=indices,
+        amplitudes=amplitudes,
+        phases=list(signal.phases),
+        name=f"{signal.name} * {constant}",
+    )
+
+
+
