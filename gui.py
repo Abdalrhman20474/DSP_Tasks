@@ -43,8 +43,16 @@ class SignalApp(tk.Tk):
 
         arith = tk.Menu(menubar, tearoff=0)
         arith.add_command(label="Addition", command=self.on_add)
+        arith.add_command(label="Subtraction", command=self.on_subtract)
         arith.add_command(label="Multiplication", command=self.on_multiply)
+        arith.add_command(label="Squaring", command=self.on_square)
+        arith.add_command(label="Normalization", command=self.on_normalize)
+        arith.add_command(label="Accumulation", command=self.on_accumulate)
         menubar.add_cascade(label="Arithmetic Operations", menu=arith)
+
+        quant_menu = tk.Menu(menubar, tearoff=0)
+        quant_menu.add_command(label="Quantize Signal...", command=self.on_quantize_window)
+        menubar.add_cascade(label="Quantization", menu=quant_menu)
 
         self.config(menu=menubar)
 
@@ -67,6 +75,8 @@ class SignalApp(tk.Tk):
                             ("Both", "both")):
             ttk.Radiobutton(bar, text=text, value=value, variable=self.mode_var,
                             command=self._redraw).pack(side="left", padx=2)
+
+        ttk.Button(bar, text="Quantize Signal...", command=self.on_quantize_window).pack(side="right", padx=6)
 
         self.top_box.bind("<<ComboboxSelected>>", lambda e: self._redraw())
         self.bottom_box.bind("<<ComboboxSelected>>", lambda e: self._redraw())
@@ -192,3 +202,99 @@ class SignalApp(tk.Tk):
         self.top_var.set(chosen[0].name)
         self.bottom_var.set(result.name)
         self._redraw()
+
+    def on_subtract(self):
+        if len(self.signals) < 2:
+            messagebox.showinfo("Subtraction", "Please load at least two signals first.")
+            return
+
+        win = tk.Toplevel(self)
+        win.title("Subtract Signals (A - B)")
+        win.transient(self)
+        win.grab_set()
+
+        ttk.Label(win, text="Signal A (Minuend):").grid(row=0, column=0, padx=10, pady=8, sticky="w")
+        a_var = tk.StringVar(value=self.signals[0].name)
+        box_a = ttk.Combobox(win, textvariable=a_var, state="readonly", values=[s.name for s in self.signals], width=30)
+        box_a.grid(row=0, column=1, padx=10, pady=8)
+
+        ttk.Label(win, text="Signal B (Subtrahend):").grid(row=1, column=0, padx=10, pady=8, sticky="w")
+        b_var = tk.StringVar(value=self.signals[1].name if len(self.signals) > 1 else self.signals[0].name)
+        box_b = ttk.Combobox(win, textvariable=b_var, state="readonly", values=[s.name for s in self.signals], width=30)
+        box_b.grid(row=1, column=1, padx=10, pady=8)
+
+        def ok():
+            sig_a = self._find(a_var.get())
+            sig_b = self._find(b_var.get())
+            win.destroy()
+            if not sig_a or not sig_b:
+                return
+            try:
+                res = self._store(subtract_signals(sig_a, sig_b))
+            except ValueError as e:
+                messagebox.showerror("Subtraction", str(e))
+                return
+            self.top_var.set(sig_a.name)
+            self.bottom_var.set(res.name)
+            self._redraw()
+
+        ttk.Button(win, text="Subtract (A - B)", command=ok).grid(row=2, column=0, columnspan=2, pady=12)
+        self.wait_window(win)
+
+    def on_square(self):
+        chosen = self._pick_signals("Squaring", multiple=False)
+        if not chosen:
+            return
+        try:
+            result = self._store(square_signal(chosen[0]))
+        except ValueError as e:
+            messagebox.showerror("Squaring", str(e))
+            return
+        self.top_var.set(chosen[0].name)
+        self.bottom_var.set(result.name)
+        self._redraw()
+
+    def on_normalize(self):
+        chosen = self._pick_signals("Normalization", multiple=False)
+        if not chosen:
+            return
+        win = tk.Toplevel(self)
+        win.title("Select Normalization Range")
+        win.transient(self)
+        win.grab_set()
+
+        mode_choice = tk.StringVar(value="0to1")
+        ttk.Label(win, text="Choose normalization range:").pack(padx=15, pady=(10, 5))
+        ttk.Radiobutton(win, text="Normalize from 0 to 1", value="0to1", variable=mode_choice).pack(anchor="w", padx=20, pady=2)
+        ttk.Radiobutton(win, text="Normalize from -1 to 1", value="-1to1", variable=mode_choice).pack(anchor="w", padx=20, pady=2)
+
+        def ok():
+            m = mode_choice.get()
+            win.destroy()
+            try:
+                result = self._store(normalize_signal(chosen[0], m))
+            except ValueError as e:
+                messagebox.showerror("Normalization", str(e))
+                return
+            self.top_var.set(chosen[0].name)
+            self.bottom_var.set(result.name)
+            self._redraw()
+
+        ttk.Button(win, text="OK", command=ok).pack(pady=10)
+        self.wait_window(win)
+
+    def on_accumulate(self):
+        chosen = self._pick_signals("Accumulation", multiple=False)
+        if not chosen:
+            return
+        try:
+            result = self._store(accumulate_signal(chosen[0]))
+        except ValueError as e:
+            messagebox.showerror("Accumulation", str(e))
+            return
+        self.top_var.set(chosen[0].name)
+        self.bottom_var.set(result.name)
+        self._redraw()
+
+    def on_quantize_window(self):
+        QuantWindow(self)
