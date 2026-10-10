@@ -5,8 +5,12 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 
 from file_io import read_signal
-from operations import add_signals, multiply_signal
+from operations import add_signals, multiply_signal , subtract_signals , square_signal , normalize_signal , accumulate_signal
+from quantization import quantize_signal
+from quant_window import QuantWindow
+
 from plotting import plot_signal, show_empty
+
 
 NONE = "(none)"
 
