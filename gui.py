@@ -11,6 +11,10 @@ from quant_window import QuantWindow
 
 from plotting import plot_signal, show_empty
 
+from frequency_domain import (compute_spectrum, modify_component, remove_dc,
+                              reconstruct)
+from freq_window import FrequencyWindow
+
 
 NONE = "(none)"
 
@@ -25,11 +29,14 @@ class SignalApp(tk.Tk):
         self.top_var = tk.StringVar(value=NONE)
         self.bottom_var = tk.StringVar(value=NONE)
         self.mode_var = tk.StringVar(value="both")
+        self.spectrum = None          # the current spectrum
+        self.spectrum_source = None   # the signal it came from
 
         self._build_menu()
         self._build_controls()
         self._build_plot()
         self._redraw()
+        
 
     # ---------------- layout ----------------
     def _build_menu(self):
@@ -53,6 +60,14 @@ class SignalApp(tk.Tk):
         quant_menu = tk.Menu(menubar, tearoff=0)
         quant_menu.add_command(label="Quantize Signal...", command=self.on_quantize_window)
         menubar.add_cascade(label="Quantization", menu=quant_menu)
+
+        freq = tk.Menu(menubar, tearoff=0)
+        freq.add_command(label="Fourier Transform...", command=self.on_dft)
+        freq.add_command(label="Dominant Frequencies", command=self.on_dominant)
+        freq.add_command(label="Modify Components...", command=self.on_modify)
+        freq.add_command(label="Remove DC Component", command=self.on_remove_dc)
+        freq.add_command(label="Reconstruct (IDFT)", command=self.on_reconstruct)
+        menubar.add_cascade(label="Frequency Domain", menu=freq)
 
         self.config(menu=menubar)
 
@@ -297,4 +312,69 @@ class SignalApp(tk.Tk):
         self._redraw()
 
     def on_quantize_window(self):
-        QuantWindow(self)
+        QuantWindow(self)
+
+
+
+        # ---------------- Task 3 callbacks ----------------
+
+        
+    def _need_spectrum(self, title):
+        if self.spectrum is None:
+            messagebox.showinfo(title, "Run Frequency Domain > Fourier Transform first.")
+            return False
+        return True
+
+    def on_dft(self):
+        chosen = self._pick_signals("Fourier Transform", multiple=False)
+        if not chosen:
+            return
+        fs = simpledialog.askfloat("Sampling frequency",
+                                   "Enter the sampling frequency (Hz):", parent=self)
+        if fs is None:
+            return
+        try:
+            spec = compute_spectrum(chosen[0], fs)
+        except ValueError as e:
+            messagebox.showerror("Fourier Transform", str(e))
+            return
+        self.spectrum = spec
+        self.spectrum_source = chosen[0]
+        FrequencyWindow(self, spec, "Fourier Transform")
+
+    def on_dominant(self):
+        if self._need_spectrum("Dominant Frequencies"):
+            FrequencyWindow(self, self.spectrum, "Dominant Frequencies")
+
+    def on_modify(self):
+        if not self._need_spectrum("Modify Components"):
+            return
+        spec = self.spectrum
+        k = simpledialog.askinteger("Modify Components",
+                                    f"Bin index (0 to {spec.n - 1}):", parent=self)
+        if k is None:
+            return
+        amp = simpledialog.askfloat("Modify Components",
+                                    "New amplitude, normalized 0-1 (Cancel = keep):",
+                                    parent=self, minvalue=0.0)
+        phase = simpledialog.askfloat("Modify Components",
+                                      "New phase in radians (Cancel = keep):", parent=self)
+        try:
+            self.spectrum = modify_component(spec, k, amplitude=amp, phase=phase)
+        except ValueError as e:
+            messagebox.showerror("Modify Components", str(e))
+            return
+        FrequencyWindow(self, self.spectrum, "Modified spectrum")
+
+    def on_remove_dc(self):
+        if not self._need_spectrum("Remove DC"):
+            return
+        self.spectrum = remove_dc(self.spectrum)
+        FrequencyWindow(self, self.spectrum, "DC removed")
+
+    def on_reconstruct(self):
+        if not self._need_spectrum("Reconstruct"):
+            return
+        result = self._store(reconstruct(self.spectrum))
+        source = self.spectrum_source or result
+        self._show_result([source], result)    
