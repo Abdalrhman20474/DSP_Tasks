@@ -116,23 +116,3 @@ def modify_component(spec, k, amplitude=None, phase=None, normalized=True):
 
 
 
-def remove_dc(spec):
-    values = list(spec.complex_values)
-    values[0] = 0j
-    return Spectrum(spec.fs, values, name=f"{spec.name} (no DC)")
-
-
-
-
-def spectrum_from_amp_phase(amplitudes, phases, fs=1.0, name="spectrum"):
-    if len(amplitudes) != len(phases):
-        raise ValueError("Amplitudes and phases must have the same length.")
-    values = [cmath.rect(a, p) for a, p in zip(amplitudes, phases)]
-    return Spectrum(fs, values, name=name)
-
-
-def reconstruct(spec, name=None):
-    values = transform(spec.complex_values, inverse=True)
-    real = [v.real for v in values]       # imaginary part is rounding noise
-    return Signal(0, 0, list(range(spec.n)), real,
-                  name=name or f"IDFT({spec.name})")
