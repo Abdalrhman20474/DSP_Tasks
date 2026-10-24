@@ -22,9 +22,6 @@ def transform(data, inverse=False):
     return out
 
 
-
-
-
 @dataclass
 class Spectrum:
     """Frequency-domain data. complex_values is the single source of truth."""
@@ -80,14 +77,11 @@ def compute_spectrum(signal, fs):
     return Spectrum(fs, values, name=f"DFT({signal.name})")
 
 
-
 def dominant_frequencies(spec, threshold=0.5):
     """[(k, frequency, normalized amplitude, phase), ...] above threshold."""
     norm, phases, freqs = spec.normalized_amplitudes, spec.phases, spec.frequencies
     return [(k, freqs[k], norm[k], phases[k])
             for k in range(spec.n) if norm[k] > threshold]
-
-
 
 
 def modify_component(spec, k, amplitude=None, phase=None, normalized=True):
@@ -115,4 +109,48 @@ def modify_component(spec, k, amplitude=None, phase=None, normalized=True):
     return Spectrum(spec.fs, values, name=spec.name)
 
 
+def remove_dc(spec: Spectrum) -> Spectrum:
+    """Remove the DC component (bin 0, F(0)) by setting it to 0."""
+    if not spec.complex_values:
+        return spec
+    values = list(spec.complex_values)
+    values[0] = 0j
+    return Spectrum(spec.fs, values, name=f"no_DC({spec.name})")
 
+
+def reconstruct(spec: Spectrum) -> Signal:
+    """Reconstruct the time-domain signal from a Spectrum using IDFT."""
+    if not spec.complex_values:
+        raise ValueError("Spectrum has no data to reconstruct.")
+    recon = transform(spec.complex_values, inverse=True)
+    indices = [float(i) for i in range(len(recon))]
+    amplitudes = [round(c.real, 6) for c in recon]
+    return Signal(
+        signal_type=0,
+        is_periodic=0,
+        indices=indices,
+        amplitudes=amplitudes,
+        phases=[],
+        name=f"IDFT({spec.name})",
+    )
+
+
+def reconstruct_from_signal(signal: Signal) -> Signal:
+    """Reconstruct a time-domain signal from a frequency-domain Signal (signal_type=1)."""
+    if signal.signal_type != 1:
+        raise ValueError("Signal must be in frequency domain (signal_type=1) to reconstruct.")
+    complex_values = [
+        cmath.rect(amp, phase)
+        for amp, phase in zip(signal.amplitudes, signal.phases)
+    ]
+    recon = transform(complex_values, inverse=True)
+    indices = [float(i) for i in range(len(recon))]
+    amplitudes = [round(c.real, 6) for c in recon]
+    return Signal(
+        signal_type=0,
+        is_periodic=0,
+        indices=indices,
+        amplitudes=amplitudes,
+        phases=[],
+        name=f"IDFT({signal.name})",
+    )

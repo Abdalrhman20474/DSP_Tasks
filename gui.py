@@ -12,7 +12,7 @@ from quant_window import QuantWindow
 from plotting import plot_signal, show_empty
 
 from frequency_domain import (compute_spectrum, modify_component, remove_dc,
-                              reconstruct)
+                              reconstruct, reconstruct_from_signal)
 from freq_window import FrequencyWindow
 
 
@@ -67,6 +67,7 @@ class SignalApp(tk.Tk):
         freq.add_command(label="Modify Components...", command=self.on_modify)
         freq.add_command(label="Remove DC Component", command=self.on_remove_dc)
         freq.add_command(label="Reconstruct (IDFT)", command=self.on_reconstruct)
+        freq.add_command(label="Save Spectrum to File...", command=self.on_save_spectrum)
         menubar.add_cascade(label="Frequency Domain", menu=freq)
 
         self.config(menu=menubar)
@@ -373,8 +374,43 @@ class SignalApp(tk.Tk):
         FrequencyWindow(self, self.spectrum, "DC removed")
 
     def on_reconstruct(self):
-        if not self._need_spectrum("Reconstruct"):
+        if self.spectrum is not None:
+            result = self._store(reconstruct(self.spectrum))
+            source = self.spectrum_source or result
+            self.top_var.set(source.name)
+            self.bottom_var.set(result.name)
+            self._redraw()
             return
-        result = self._store(reconstruct(self.spectrum))
-        source = self.spectrum_source or result
-        self._show_result([source], result)    
+
+        chosen = self._pick_signals("Reconstruct (IDFT)", multiple=False)
+        if not chosen:
+            return
+        sig = chosen[0]
+        if sig.signal_type != 1:
+            messagebox.showerror("Reconstruct (IDFT)", "Selected signal is not in frequency domain.")
+            return
+        try:
+            result = self._store(reconstruct_from_signal(sig))
+        except Exception as e:
+            messagebox.showerror("Reconstruct (IDFT)", str(e))
+            return
+        self.top_var.set(sig.name)
+        self.bottom_var.set(result.name)
+        self._redraw()
+
+    def on_save_spectrum(self):
+        if not self._need_spectrum("Save Spectrum"):
+            return
+        path = filedialog.asksaveasfilename(
+            title="Save Spectrum",
+            defaultextension=".txt",
+            filetypes=[("Text files", "*.txt"), ("All files", "*.*")],
+        )
+        if not path:
+            return
+        try:
+            from file_io import write_spectrum
+            write_spectrum(path, self.spectrum)
+            messagebox.showinfo("Save Spectrum", f"Saved successfully to: {path}")
+        except Exception as e:
+            messagebox.showerror("Save Spectrum Failed", str(e))    
