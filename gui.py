@@ -14,6 +14,10 @@ from plotting import plot_signal, show_empty
 from frequency_domain import (compute_spectrum, modify_component, remove_dc,
                               reconstruct, reconstruct_from_signal)
 from freq_window import FrequencyWindow
+from time_domain import (moving_average, first_derivative, second_derivative,
+                         shift_signal, fold_signal, shift_folded,remove_dc_time, convolve)
+
+
 
 
 NONE = "(none)"
@@ -69,6 +73,21 @@ class SignalApp(tk.Tk):
         freq.add_command(label="Reconstruct (IDFT)", command=self.on_reconstruct)
         freq.add_command(label="Save Spectrum to File...", command=self.on_save_spectrum)
         menubar.add_cascade(label="Frequency Domain", menu=freq)
+
+
+
+        td = tk.Menu(menubar, tearoff=0)
+        td.add_command(label="Smoothing (Moving Average)...", command=self.on_moving_average)
+        td.add_command(label="First Derivative", command=self.on_first_derivative)
+        td.add_command(label="Second Derivative", command=self.on_second_derivative)
+        td.add_separator()
+        td.add_command(label="Delay / Advance...", command=self.on_shift)
+        td.add_command(label="Fold", command=self.on_fold)
+        td.add_command(label="Delay / Advance Folded Signal...", command=self.on_shift_folded)
+        td.add_separator()
+        td.add_command(label="Remove DC Component", command=self.on_remove_dc_time)
+        td.add_command(label="Convolution...", command=self.on_convolve)
+        menubar.add_cascade(label="Time Domain", menu=td)
 
         self.config(menu=menubar)
 
@@ -414,3 +433,68 @@ class SignalApp(tk.Tk):
             messagebox.showinfo("Save Spectrum", f"Saved successfully to: {path}")
         except Exception as e:
             messagebox.showerror("Save Spectrum Failed", str(e))    
+
+
+
+        # ---------------- Task 4 / 5: Time Domain + Convolution ----------------
+    def _show_td(self, source, result):
+        """Input on the top plot, result on the bottom plot."""
+        self.top_var.set(source.name)
+        self.bottom_var.set(result.name)
+        self._redraw()
+
+    def _run_td(self, title, func, prompt=None, minvalue=None):
+        """Pick one signal, optionally ask for a whole number, run func, show the result."""
+        chosen = self._pick_signals(title, multiple=False)
+        if not chosen:
+            return
+        extra = []
+        if prompt is not None:
+            value = simpledialog.askinteger(title, prompt, parent=self, minvalue=minvalue)
+            if value is None:                       # user pressed Cancel
+                return
+            extra.append(value)
+        try:
+            result = self._store(func(chosen[0], *extra))
+        except ValueError as e:
+            messagebox.showerror(title, str(e))
+            return
+        self._show_td(chosen[0], result)
+
+    def on_moving_average(self):
+        self._run_td("Smoothing (Moving Average)", moving_average,
+                     "Number of points included in the average:", minvalue=1)
+
+    def on_first_derivative(self):
+        self._run_td("First Derivative", first_derivative)
+
+    def on_second_derivative(self):
+        self._run_td("Second Derivative", second_derivative)
+
+    def on_shift(self):
+        self._run_td("Delay / Advance", shift_signal,
+                     "Steps k (positive = delay, negative = advance):")
+
+    def on_fold(self):
+        self._run_td("Fold", fold_signal)
+
+    def on_shift_folded(self):
+        self._run_td("Delay / Advance Folded Signal", shift_folded,
+                     "Steps k (positive = delay, negative = advance):")
+
+    def on_remove_dc_time(self):
+        self._run_td("Remove DC Component (time domain)", remove_dc_time)
+
+    def on_convolve(self):
+        chosen = self._pick_signals("Convolution", multiple=True)
+        if not chosen:
+            return
+        if len(chosen) != 2:
+            messagebox.showwarning("Convolution", "Select exactly two signals.")
+            return
+        try:
+            result = self._store(convolve(chosen[0], chosen[1]))
+        except ValueError as e:
+            messagebox.showerror("Convolution", str(e))
+            return
+        self._show_td(chosen[0], result)        
